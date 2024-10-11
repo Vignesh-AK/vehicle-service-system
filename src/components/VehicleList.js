@@ -26,7 +26,7 @@ const VehicleList = () => {
 
   return (
     <div>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom style={{paddingTop:'4rem'}}> 
         Vehicle List
       </Typography>
       <Grid container spacing={2}>
