@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Paper, TextField, Button, Typography, MenuItem, FormControl, InputLabel, Select } from '@mui/material';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
-export default function VehicleForm() {
+export default function ServiceForm() {
   const [issueDescription, setIssueDescription] = useState('');
+  const [registrationNumber, setRegistrationNumber] = useState('');
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
   const [year, setYear] = useState('');
@@ -13,8 +15,9 @@ export default function VehicleForm() {
   const [components, setComponents] = useState([]);
   const [existingVehicle, setExistingVehicle] = useState('');
   const [issues, setIssues] = useState([]);
-  console.log(existingVehicle)
+
   useEffect(() => {
+    // Fetch the list of vehicles
     const fetchVehicles = async () => {
       try {
         const response = await axios.get('http://localhost:8000/vehicles/');
@@ -24,18 +27,26 @@ export default function VehicleForm() {
       }
     };
 
+    fetchVehicles();
+  }, []);
+
+  // Fetch components based on selected vehicle
+  useEffect(() => {
     const fetchComponents = async () => {
-      try {
-        const response = await axios.get('http://localhost:8000/components/');
-        setComponents(response.data);
-      } catch (error) {
-        console.error('Error fetching components:', error);
+      if (existingVehicle) {
+        try {
+          const response = await axios.get(`http://localhost:8000/vehicles/${existingVehicle}/components/`);
+          setComponents(response.data);
+        } catch (error) {
+          console.error('Error fetching components:', error);
+        }
+      } else {
+        setComponents([]); // Clear components if no vehicle is selected
       }
     };
 
-    fetchVehicles();
     fetchComponents();
-  }, []);
+  }, [existingVehicle]); // Fetch components whenever `existingVehicle` changes
 
   const handleAddIssue = () => {
     if (issueDescription && component) {
@@ -50,23 +61,42 @@ export default function VehicleForm() {
       setIsRepair(true);
     }
   };
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const vehicleData = existingVehicle
-      ? { vehicle_id: existingVehicle, issues }
-      : { make, model, year, issues };
+
+    // Prepare data for service
+    const serviceData = {
+      vehicle_id: existingVehicle,
+      registration_number: registrationNumber,
+      issue_description: issueDescription,
+      status: 2, // Assuming Pending status by default, you can customize this
+      issues: issues.map((issue) => ({
+        component_id: issue.component,
+        is_repair: issue.is_repair,
+        cost: issue.is_repair ? issue.cost : issue.component.new_price, // Assuming the cost for repair/replace
+        status: 2, // Assuming On Hold by default, customize as needed
+        issue_description: issue.issue_description,
+      })),
+    };
 
     try {
-      const response = await axios.post('http://localhost:8000/vehicles/', vehicleData);
-      console.log('Vehicle registered:', response.data);
+      // Send the service and issue data to the service endpoint
+      const response = await axios.post('http://localhost:8000/services/create', serviceData);
+      
+      console.log('Service created successfully:', response.data);
+      
+      // Reset form after successful submission
       setIssues([]);
       setExistingVehicle('');
-      setMake('');
-      setModel('');
-      setYear('');
+      setRegistrationNumber('');
+      setIssueDescription('');
+      setComponent('');
+      setIsRepair(true);
+      navigate(`/bills/${response.data.bill_id}`);
     } catch (error) {
-      console.error('Error registering vehicle:', error);
+      console.error('Error creating service:', error);
     }
   };
 
@@ -90,6 +120,8 @@ export default function VehicleForm() {
               </MenuItem>
             ))}
           </TextField>
+
+          {/* Render new vehicle fields if no existing vehicle is selected */}
           {!existingVehicle && (
             <>
               <TextField
@@ -116,6 +148,13 @@ export default function VehicleForm() {
             </>
           )}
           <TextField
+            label="Registration Number"
+            fullWidth
+            margin="normal"
+            value={registrationNumber}
+            onChange={(e) => setRegistrationNumber(e.target.value)}
+          />
+          <TextField
             label="Issue Description"
             fullWidth
             margin="normal"
@@ -124,6 +163,7 @@ export default function VehicleForm() {
             value={issueDescription}
             onChange={(e) => setIssueDescription(e.target.value)}
           />
+
           <TextField
             select
             label="Select Component"
@@ -139,20 +179,24 @@ export default function VehicleForm() {
               </MenuItem>
             ))}
           </TextField>
+
           {/* Option to choose between repair or replace */}
           <FormControl fullWidth margin="normal">
             <InputLabel>Repair or Replace</InputLabel>
             <Select
-              value={isRepair ? "repair" : "replace"}
-              onChange={(e) => setIsRepair(e.target.value === "repair")}
+              value={isRepair ? 'repair' : 'replace'}
+              onChange={(e) => setIsRepair(e.target.value === 'repair')}
             >
               <MenuItem value="repair">Repair</MenuItem>
               <MenuItem value="replace">Replace</MenuItem>
             </Select>
           </FormControl>
+
           <Button variant="contained" color="primary" onClick={handleAddIssue} sx={{ mt: 2 }}>
             Add Issue
           </Button>
+
+          {/* Display added issues */}
           <Box sx={{ mt: 2 }}>
             <Typography variant="h6">Issues:</Typography>
             {issues.map((issue, index) => (
@@ -161,6 +205,7 @@ export default function VehicleForm() {
               </Typography>
             ))}
           </Box>
+
           <Button variant="contained" color="primary" type="submit" sx={{ mt: 2 }}>
             Submit
           </Button>

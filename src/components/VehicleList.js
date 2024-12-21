@@ -10,7 +10,7 @@ const VehicleList = () => {
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/vehicles/');
+        const response = await axios.get('http://localhost:8000/services/');
         console.log(response.data)
         setVehicles(response.data);
       } catch (error) {
